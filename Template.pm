@@ -8,7 +8,7 @@
 # same terms as Perl iteself.  
 # If in doubt, write to mjd-perl-template+@pobox.com for a license.
 #
-# Version 1.22
+# Version 1.23
 
 package Text::Template;
 require 5.004;
@@ -18,7 +18,7 @@ use Exporter;
 use vars '$ERROR';
 use strict;
 
-$Text::Template::VERSION = '1.22';
+$Text::Template::VERSION = '1.23';
 my %GLOBAL_PREPEND = ('Text::Template' => '');
 
 sub Version {
@@ -321,7 +321,7 @@ sub fill_in {
 sub fill_this_in {
   my $pack = shift;
   my $text = shift;
-  my $templ = $pack->new(TYPE => 'STRING', SOURCE => $text)
+  my $templ = $pack->new(TYPE => 'STRING', SOURCE => $text, @_)
     or return undef;
   $templ->compile or return undef;
   my $result = $templ->fill_in(@_);
@@ -334,7 +334,7 @@ sub fill_in_string {
 
 sub fill_in_file {
   my $fn = shift;
-  my $templ = Text::Template->new(TYPE => 'FILE', SOURCE => $fn)
+  my $templ = Text::Template->new(TYPE => 'FILE', SOURCE => $fn, @_)
     or return undef;
   $templ->compile or return undef;
   my $text = $templ->fill_in(@_);
@@ -406,7 +406,7 @@ Text::Template - Expand template text with embedded Perl
 
 =head1 VERSION
 
-This file documents C<Text::Template> version B<1.22>
+This file documents C<Text::Template> version B<1.23>
 
 =head1 SYNOPSIS
 
