@@ -7,15 +7,15 @@ use lib '../blib/lib', './blib/lib';
 use Text::Template;
 $X::v = $Y::v = 0;		# Suppress `var used only once'
 
-print "1..29\n";
+print "1..32\n";
 
 $n=1;
 
-die "This is the test program for Text::Template version 1.31.
+die "This is the test program for Text::Template version 1.32.
 You are using version $Text::Template::VERSION instead.
 That does not make sense.\n
 Aborting"
-  unless $Text::Template::VERSION == 1.31;
+  unless $Text::Template::VERSION == 1.32;
 
 $template_1 = <<EOM;
 We will put value of \$v (which is "abc") here -> {\$v}
@@ -253,6 +253,45 @@ for ($i=0; $i<@tests; $i+=2) {
   print +($ok ? '' : 'not '), "ok $n\n";
   $n++;
 }
+
+
+# (30-32) I discovered that you can't pass a glob ref as your filehandle.
+# MJD 20010827
+# (30) test creation of template from filehandle
+if (open (TMPL, "< $TEMPFILE")) {
+  $template = new Text::Template ('type' => 'FILEHANDLE', 
+				  'source' => \*TMPL);
+  if (defined($template)) {
+    print "ok $n\n";
+  } else {
+    print "not ok $n $Text::Template::ERROR\n";
+  }
+  $n++;
+
+# (31) test filling in of template from filehandle
+  $text = $template->fill_in('package' => X);
+  if ($text eq $resultX) {
+    print "ok $n\n";
+  } else {
+    print "not ok $n\n";
+  }
+  $n++;
+
+# (32) test second fill_in on same template object
+  $text = $template->fill_in('package' => Y);
+  if ($text eq $resultY) {
+    print "ok $n\n";
+  } else {
+    print "not ok $n\n";
+  }
+  $n++;
+  close TMPL;
+} else {
+  print "not ok $n\n";  $n++;
+  print "not ok $n\n";  $n++;
+  print "not ok $n\n";  $n++;
+}
+
 
 
 

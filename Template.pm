@@ -6,9 +6,9 @@
 # Copyright 1996, 1997, 1999 M-J. Dominus.
 # You may copy and distribute this program under the
 # same terms as Perl iteself.  
-# If in doubt, write to mjd-perl-template+@pobox.com for a license.
+# If in doubt, write to mjd-perl-template+@plover.com for a license.
 #
-# Version 1.31
+# Version 1.32
 
 package Text::Template;
 require 5.004;
@@ -18,7 +18,7 @@ use Exporter;
 use vars '$ERROR';
 use strict;
 
-$Text::Template::VERSION = '1.31';
+$Text::Template::VERSION = '1.32';
 my %GLOBAL_PREPEND = ('Text::Template' => '');
 
 sub Version {
@@ -52,6 +52,7 @@ sub always_prepend
     my %a = @_;
     my $stype = uc(_param('type', %a)) || 'FILE';
     my $source = _param('source', %a);
+    my $untaint = _param('untaint', %a);
     my $prepend = _param('prepend', %a);
     my $alt_delim = _param('delimiters', %a);
     unless (defined $source) {
@@ -65,6 +66,7 @@ sub always_prepend
     my $self = {TYPE => $stype,
 		SOURCE => $source,
 		PREPEND => $prepend,
+                UNTAINT => $untaint,
 		(defined $alt_delim ? (DELIM => $alt_delim) : ()),
 	       };
 
@@ -81,23 +83,29 @@ sub _acquire_data {
   my ($self) = @_;
   my $type = $self->{TYPE};
   if ($type eq 'STRING') {
-    return 1;
+    # nothing necessary    
   } elsif ($type eq 'FILE') {
-    my $text = _load_text($self->{SOURCE});
-    unless (defined $text) {
+    my $data = _load_text($self->{SOURCE});
+    unless (defined $data) {
       # _load_text already set $ERROR
       return undef;
     }
+    if ($self->{UNTAINT} && _is_clean($self->{SOURCE})) {
+      _unconditionally_untaint($data);
+    }
     $self->{TYPE} = 'STRING';
-    $self->{SOURCE} = $text;
+    $self->{SOURCE} = $data;
   } elsif ($type eq 'ARRAY') {
     $self->{TYPE} = 'STRING';
     $self->{SOURCE} = join '', @{$self->{SOURCE}};
   } elsif ($type eq 'FILEHANDLE') {
     $self->{TYPE} = 'STRING';
     local $/;
-    local *FH = $self->{SOURCE};
-    my $data = <FH>; # Extra assignment avoids bug in Solaris perl5.00[45].
+    my $fh = $self->{SOURCE};
+    my $data = <$fh>; # Extra assignment avoids bug in Solaris perl5.00[45].
+    if ($self->{UNTAINT}) {
+      _unconditionally_untaint($data);
+    }
     $self->{SOURCE} = $data;
   } else {
     # This should have been caught long ago, so it represents a 
@@ -112,6 +120,14 @@ sub source {
   my ($self) = @_;
   $self->_acquire_data unless $self->{DATA_ACQUIRED};
   return $self->{SOURCE};
+}
+
+sub set_source_data {
+  my ($self, $newdata) = @_;
+  $self->{SOURCE} = $newdata;
+  $self->{DATA_ACQUIRED} = 1;
+  $self->{TYPE} = 'STRING';
+  1;
 }
 
 sub compile {
@@ -229,6 +245,7 @@ sub fill_in {
   my $fi_safe = _param('safe', %fi_a);
   my $fi_ofh = _param('output', %fi_a);
   my $fi_eval_package;
+  my $fi_scrub_package = 0;
 
   my $fi_prepend = _param('prepend', %fi_a);
   unless (defined $fi_prepend) {
@@ -241,6 +258,7 @@ sub fill_in {
     $fi_eval_package = $fi_package;
   } elsif (defined $fi_varhash) {
     $fi_eval_package = _gensym();
+    $fi_scrub_package = 1;
   } else {
     $fi_eval_package = caller;
   }
@@ -280,6 +298,7 @@ sub fill_in {
       my $fi_res;
       my $fi_eval_err = '';
       if ($fi_safe) {
+        $fi_safe->reval(q{undef $OUT});
 	$fi_res = $fi_safe->reval($fi_progtext);
 	$fi_eval_err = $@;
 	my $OUT = $fi_safe->reval('$OUT');
@@ -322,6 +341,8 @@ sub fill_in {
       die "Can't happen error #2";
     }
   }
+
+  _scrubpkg($fi_eval_package) if $fi_scrub_package;
   defined $fi_ofh ? 1 : $fi_r;
 }
 
@@ -371,10 +392,30 @@ sub _load_text {
   <F>;
 }
 
+sub _is_clean {
+  my $z;
+  eval { ($z = join('', @_)), eval "#$z"; 1 }   # LOD
+}
+
+sub _unconditionally_untaint {
+  for (@_) {
+    ($_) = /(.*)/s;
+  }
+}
+
 {
   my $seqno = 0;
   sub _gensym {
     __PACKAGE__ . '::GEN' . $seqno++;
+  }
+  sub _scrubpkg {
+    my $s = shift;
+    no strict 'refs';
+    my $hash = $Text::Template::{$s."::"};
+    foreach my $key (%$hash) {
+      delete $hash->{$key};
+    }
+    delete $Text::Template::{$s."::"};
   }
 }
   
@@ -1676,7 +1717,7 @@ inside the template:
 Mark-Jason Dominus, Plover Systems
 
 Please send questions and other remarks about this software to
-C<mjd-perl-template@pobox.com>
+C<mjd-perl-template+@plover.com>
 
 You can join a very low-volume (E<lt>10 messages per year) mailing
 list for announcements about this package.  Send an empty note to
@@ -1686,17 +1727,23 @@ For updates, visit C<http://www.plover.com/~mjd/perl/Template/>.
 
 =head2 Support?
 
-This software is version 1.0.  It is a complete rewrite of an older
-package, and may have bugs.  Suggestions and bug reports are always
-welcome.  Send them to C<mjd-perl-template@plover.com>.  (That is my
-address, not the address of the mailing list.  The mailing list
-address is a secret.)
+This software is version 1.32.  It may have bugs.  Suggestions and bug
+reports are always welcome.  Send them to
+C<mjd-perl-template+@plover.com>.  (That is my address, not the address
+of the mailing list.  The mailing list address is a secret.)
 
-=head2 Thanks
+head1 LICENSE
+
+  ## FIX ME
+
+=head1 Thanks
 
 Many thanks to the following people for offering support,
-encouragement, advice, and all the other good stuff.  
+encouragement, advice, bug reports, and all the other good stuff.  
 
+David H. Adler /
+Itamar Almeida de Carvalho /
+Joel Appelbaum /
 Klaus Arnhold /
 Kevin Atteson /
 Chris.Brezil /
@@ -1718,8 +1765,10 @@ Daniel LaLiberte /
 Reuven M. Lerner /
 Joel Meulenberg /
 Jason Moore /
+Chris Nandor /
 Bek Oberin /
 Ron Pero /
+Steve Palincsar /
 Hans Persson /
 Jonathan Roy /
 Shabbir J. Safdar /
@@ -1740,6 +1789,7 @@ Larry Virden /
 Andy Wardley /
 Matt Womer /
 Andrew G Wood /
+Daini Xie /
 Michaely Yeung
 
 Special thanks to:
@@ -1769,9 +1819,6 @@ names in your templates.
 The line number information will be wrong if the template's lines are
 not terminated by C<"\n">.  You should let me know if this is a
 problem.  If you do, I will fix it.
-
-The default format for reporting of broken program fragments has
-changed since version 0.1.  
 
 The C<$OUT> variable has a special meaning in templates, so you cannot
 use it as if it were a regular variable.

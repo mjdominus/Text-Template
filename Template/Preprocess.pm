@@ -9,8 +9,10 @@ sub fill_in {
   my $pp = $args{PREPROCESSOR} || $self->{PREPROCESSOR} ;
   if ($pp) {
     local $_ = $self->source();
+    print "# fill_in: before <$_>\n";
     &$pp;
-    $self->source($_);
+    print "# fill_in: after <$_>\n";
+    $self->set_source_data($_);
   }
   $self->SUPER::fill_in(@_);
 }
