@@ -1,8 +1,6 @@
 #!perl
 #
 # test apparatus for Text::Template module
-# Add Danni Xie's test that he sent in his email.
-# 20000305
 
 use lib '../blib/lib';
 use Text::Template;
@@ -15,11 +13,11 @@ BEGIN {
   }
 }
 
-die "This is the test program for Text::Template version 1.32.
+die "This is the test program for Text::Template version 1.40.
 You are using version $Text::Template::VERSION instead.
 That does not make sense.\n
 Aborting"
-  unless $Text::Template::VERSION == 1.32;
+  unless $Text::Template::VERSION == 1.40;
 
 print "1..3\n";
 
@@ -61,7 +59,7 @@ $textOUT = $templateOUT->fill_in()
 print +($text eq $textOUT ? '' : 'not '), "ok $n\n";
 $n++;
 
-# (2-3)  "Joel" <joel@orbz.com> <000701c0ac2c$aed1d6e0$0201a8c0@prime>
+# (2-3)  "Joel Appelbaum" <joel@orbz.com> <000701c0ac2c$aed1d6e0$0201a8c0@prime>
 # "Contrary to the documentation the $OUT variable is not always
 # undefined at the start of each program fragment.  The $OUT variable
 # is never undefined after it is used once if you are using the SAFE
@@ -69,6 +67,8 @@ $n++;
 # $OUT was used in is replaced by the old $OUT value instead of the
 # result of the fragment.  This holds true even after the
 # Text::Template object goes out of scope and a new one is created!"
+#
+# Also reported by Daini Xie.
 
 {
   my $template = q{{$OUT = 'x'}y{$OUT .= 'z'}};
