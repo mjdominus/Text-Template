@@ -1,0 +1,27 @@
+
+This is the long-promised update of Text::Template.
+
+It is actually a complete rewrite.  The new version delivers better
+functionality but is only 2/3 as long, which I think is a good sign.
+It is supposed to be 100% backward-compatible with the previous
+versions.  With one cosmetic change, it passes the test suite that the
+previous versions passed.
+
+New features:
+
+* Better argument syntax
+
+* At least twice as fast
+
+* Better support for filling out the same template more than once
+
+* More convenience functions
+
+In particular, the parser is much better and simpler, and once a
+template is parsed, the parsed version is stored so that it needn't be
+parsed again.
+
+Questions or comments should be addressed to mjd-perl-template@plover.com.
+
+You can get the most recent version, new, comments, and other
+collateral information from <URL:http://www.plover.com/~mjd/perl/Template/>.
