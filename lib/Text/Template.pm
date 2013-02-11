@@ -50,7 +50,7 @@ sub always_prepend
   sub new {
     my $pack = shift;
     my %a = @_;
-    my $stype = uc(_param('type', %a)) || 'FILE';
+    my $stype = uc(_param('type', %a) || "FILE");
     my $source = _param('source', %a);
     my $untaint = _param('untaint', %a);
     my $prepend = _param('prepend', %a);
