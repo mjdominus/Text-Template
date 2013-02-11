@@ -3,12 +3,12 @@
 #
 # Fill in `templates'
 #
-# Copyright 1996, 1997, 1999, 2001, 2002, 2003, 2008 M-J. Dominus.
+# Copyright 2013 M. J. Dominus.
 # You may copy and distribute this program under the
 # same terms as Perl iteself.  
 # If in doubt, write to mjd-perl-template+@plover.com for a license.
 #
-# Version 1.45
+# Version 1.46
 
 package Text::Template;
 require 5.004;
@@ -18,7 +18,7 @@ use Exporter;
 use vars '$ERROR';
 use strict;
 
-$Text::Template::VERSION = '1.45';
+$Text::Template::VERSION = '1.46';
 my %GLOBAL_PREPEND = ('Text::Template' => '');
 
 sub Version {
@@ -484,7 +484,7 @@ Text::Template - Expand template text with embedded Perl
 
 =head1 VERSION
 
-This file documents C<Text::Template> version B<1.45>
+This file documents C<Text::Template> version B<1.46>
 
 =head1 SYNOPSIS
 
@@ -1834,15 +1834,15 @@ For updates, visit C<http://www.plover.com/~mjd/perl/Template/>.
 
 =head2 Support?
 
-This software is version 1.45.  It may have bugs.  Suggestions and bug
+This software is version 1.46.  It may have bugs.  Suggestions and bug
 reports are always welcome.  Send them to
 C<mjd-perl-template+@plover.com>.  (That is my address, not the address
 of the mailing list.  The mailing list address is a secret.)
 
 =head1 LICENSE
 
-    Text::Template version 1.45
-    Copyright (C) 2008 Mark Jason Dominus
+    Text::Template version 1.46
+    Copyright 2013 Mark Jason Dominus
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License as
