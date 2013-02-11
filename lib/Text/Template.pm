@@ -1821,7 +1821,7 @@ method.  It is passed a list of pairs with these entries:
 
 =head2 Author
 
-Mark-Jason Dominus, Plover Systems
+Mark Jason Dominus, Plover Systems
 
 Please send questions and other remarks about this software to
 C<mjd-perl-template+@plover.com>
