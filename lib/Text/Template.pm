@@ -11,7 +11,9 @@
 # Version 1.46
 
 package Text::Template;
+use Text::Template::Reader;
 require 5.004;
+use Carp qw(croak);
 use Exporter;
 @ISA = qw(Exporter);
 @EXPORT_OK = qw(fill_in_file fill_in_string TTerror);
@@ -43,41 +45,33 @@ sub always_prepend
 }
 
 {
-  my %LEGAL_TYPE;
-  BEGIN { 
-    %LEGAL_TYPE = map {$_=>1} qw(FILE FILEHANDLE STRING ARRAY);
-  }
   sub new {
     my $pack = shift;
     my %a = @_;
-    my $stype = uc(_param('type', %a) || "FILE");
-    my $source = _param('source', %a);
+    my $self = {};
+
+    my $reader = do {
+	my $stype = uc(_param('type', %a) || 'FILE');
+	my $source = _param('source', %a);
+
+	croak("Usage: Text::Template::new(TYPE => ..., SOURCE => ...)")
+	    unless defined $stype && defined $source;
+
+	Text::Template::Reader->new(type   => $stype,
+				    source => $source)
+	    or return;
+    };
+
     my $untaint = _param('untaint', %a);
     my $prepend = _param('prepend', %a);
-    my $alt_delim = _param('delimiters', %a);
     my $broken = _param('broken', %a);
-    unless (defined $source) {
-      require Carp;
-      Carp::croak("Usage: $ {pack}::new(TYPE => ..., SOURCE => ...)");
-    }
-    unless ($LEGAL_TYPE{$stype}) {
-      require Carp;
-      Carp::croak("Illegal value `$stype' for TYPE parameter");
-    }
-    my $self = {TYPE => $stype,
-		PREPEND => $prepend,
-                UNTAINT => $untaint,
-                BROKEN => $broken,
-		(defined $alt_delim ? (DELIM => $alt_delim) : ()),
-	       };
-    # Under 5.005_03, if any of $stype, $prepend, $untaint, or $broken
-    # are tainted, all the others become tainted too as a result of
-    # sharing the expression with them.  We install $source separately
-    # to prevent it from acquiring a spurious taint.
-    $self->{SOURCE} = $source;
+    @{$self}{qw(PREPEND UNTAINT BROKEN)} = ($prepend, $untaint, $broken);
+
+    my $alt_delim = _param('delimiters', %a);
+    $self->{DELIM} = $alt_delim if defined $alt_delim;
 
     bless $self => $pack;
-    return unless $self->_acquire_data;
+    return unless $self->_acquire_data($reader);
     
     $self;
   }
@@ -86,83 +80,44 @@ sub always_prepend
 # Convert template objects of various types to type STRING,
 # in which the template data is embedded in the object itself.
 sub _acquire_data {
-  my ($self) = @_;
-  my $type = $self->{TYPE};
-  if ($type eq 'STRING') {
-    # nothing necessary    
-  } elsif ($type eq 'FILE') {
-    my $data = _load_text($self->{SOURCE});
-    unless (defined $data) {
-      # _load_text already set $ERROR
-      return undef;
-    }
-    if ($self->{UNTAINT} && _is_clean($self->{SOURCE})) {
+  my ($self, $reader) = @_;
+  return 1 if defined $self->{DATA};
+  my $data = $reader->load_template_data
+      or return;
+  if ($self->{UNTAINT} && $reader->source_is_safe) {
       _unconditionally_untaint($data);
-    }
-    $self->{TYPE} = 'STRING';
-    $self->{FILENAME} = $self->{SOURCE};
-    $self->{SOURCE} = $data;
-  } elsif ($type eq 'ARRAY') {
-    $self->{TYPE} = 'STRING';
-    $self->{SOURCE} = join '', @{$self->{SOURCE}};
-  } elsif ($type eq 'FILEHANDLE') {
-    $self->{TYPE} = 'STRING';
-    local $/;
-    my $fh = $self->{SOURCE};
-    my $data = <$fh>; # Extra assignment avoids bug in Solaris perl5.00[45].
-    if ($self->{UNTAINT}) {
-      _unconditionally_untaint($data);
-    }
-    $self->{SOURCE} = $data;
-  } else {
-    # This should have been caught long ago, so it represents a 
-    # drastic `can't-happen' sort of failure
-    my $pack = ref $self;
-    die "Can only acquire data for $pack objects of subtype STRING, but this is $type; aborting";
   }
-  $self->{DATA_ACQUIRED} = 1;
+  $self->set_source_data($data);
 }
 
 sub source {
-  my ($self) = @_;
-  $self->_acquire_data unless $self->{DATA_ACQUIRED};
-  return $self->{SOURCE};
+    my ($self) = @_;
+    return $self->{DATA};
 }
 
 sub set_source_data {
   my ($self, $newdata) = @_;
-  $self->{SOURCE} = $newdata;
-  $self->{DATA_ACQUIRED} = 1;
-  $self->{TYPE} = 'STRING';
+  $self->{DATA} = $newdata;
   1;
 }
 
 sub compile {
   my $self = shift;
 
-  return 1 if $self->{TYPE} eq 'PREPARSED';
+  return 1 if $self->{IS_COMPILED};
 
   return undef unless $self->_acquire_data;
-  unless ($self->{TYPE} eq 'STRING') {
-    my $pack = ref $self;
-    # This should have been caught long ago, so it represents a 
-    # drastic `can't-happen' sort of failure
-    die "Can only compile $pack objects of subtype STRING, but this is $self->{TYPE}; aborting";
-  }
-
   my @tokens;
   my $delim_pats = shift() || $self->{DELIM};
-
-  
 
   my ($t_open, $t_close) = ('{', '}');
   my $DELIM;			# Regex matches a delimiter if $delim_pats
   if (defined $delim_pats) {
     ($t_open, $t_close) = @$delim_pats;
     $DELIM = "(?:(?:\Q$t_open\E)|(?:\Q$t_close\E))";
-    @tokens = split /($DELIM|\n)/, $self->{SOURCE};
+    @tokens = split /($DELIM|\n)/, $self->{DATA};
   } else {
-    @tokens = split /(\\\\(?=\\*[{}])|\\[{}]|[{}\n])/, $self->{SOURCE};
+    @tokens = split /(\\\\(?=\\*[{}])|\\[{}]|[{}\n])/, $self->{DATA};
   }
   my $state = 'TEXT';
   my $depth = 0;
@@ -216,7 +171,7 @@ sub compile {
     die "Can't happen error #1";
   }
   
-  $self->{TYPE} = 'PREPARSED';
+  $self->{IS_COMPILED} = 1;
   $self->{SOURCE} = \@content;
   1;
 }
@@ -238,7 +193,7 @@ sub fill_in {
   my $fi_self = shift;
   my %fi_a = @_;
 
-  unless ($fi_self->{TYPE} eq 'PREPARSED') {
+  unless ($fi_self->{IS_COMPILED}) {
     my $delims = _param('delimiters', %fi_a);
     my @delim_arg = (defined $delims ? ($delims) : ());
     $fi_self->compile(@delim_arg)
@@ -408,16 +363,8 @@ sub _default_broken {
   "Program fragment delivered error ``$err''";
 }
 
-sub _load_text {
-  my $fn = shift;
-  local *F;
-  unless (open F, $fn) {
-    $ERROR = "Couldn't open file $fn: $!";
-    return undef;
-  }
-  local $/;
-  <F>;
-}
+# For ancient backwards compatibility
+BEGIN { *_load_text = \&Text::Template::Reader::File::_load_text }
 
 sub _is_clean {
   my $z;
