@@ -44,11 +44,17 @@ sub always_prepend
   $old;
 }
 
+use Text::Template::Compiler;
+sub compiler_factory { "Text::Template::Compiler" }
+
 {
   sub new {
     my $pack = shift;
     my %a = @_;
-    my $self = {};
+    my $self = bless {} => $pack;
+
+    $self->compiler(_param('compiler', %a)
+		    || $pack->compiler_factory->new(%a));
 
     my $reader = do {
 	my $stype = uc(_param('type', %a) || 'FILE');
@@ -67,10 +73,6 @@ sub always_prepend
     my $broken = _param('broken', %a);
     @{$self}{qw(PREPEND UNTAINT BROKEN)} = ($prepend, $untaint, $broken);
 
-    my $alt_delim = _param('delimiters', %a);
-    $self->{DELIM} = $alt_delim if defined $alt_delim;
-
-    bless $self => $pack;
     return unless $self->_acquire_data($reader);
     
     $self;
@@ -101,79 +103,24 @@ sub set_source_data {
   1;
 }
 
+sub is_compiled {
+  my ($self, $new) = @_;
+  my $old = $self->{IS_COMPILED};
+  $self->{IS_COMPILED} = $new if @_ > 1;
+  return $old;
+}
+
 sub compile {
-  my $self = shift;
+  my ($self, $args) = @_;
+  return if $self->is_compiled;
+  $self->compiler->compile($self, $args);
+}
 
-  return 1 if $self->{IS_COMPILED};
-
-  return undef unless $self->_acquire_data;
-  my @tokens;
-  my $delim_pats = shift() || $self->{DELIM};
-
-  my ($t_open, $t_close) = ('{', '}');
-  my $DELIM;			# Regex matches a delimiter if $delim_pats
-  if (defined $delim_pats) {
-    ($t_open, $t_close) = @$delim_pats;
-    $DELIM = "(?:(?:\Q$t_open\E)|(?:\Q$t_close\E))";
-    @tokens = split /($DELIM|\n)/, $self->{DATA};
-  } else {
-    @tokens = split /(\\\\(?=\\*[{}])|\\[{}]|[{}\n])/, $self->{DATA};
-  }
-  my $state = 'TEXT';
-  my $depth = 0;
-  my $lineno = 1;
-  my @content;
-  my $cur_item = '';
-  my $prog_start;
-  while (@tokens) {
-    my $t = shift @tokens;
-    next if $t eq '';
-    if ($t eq $t_open) {	# Brace or other opening delimiter
-      if ($depth == 0) {
-	push @content, [$state, $cur_item, $lineno] if $cur_item ne '';
-	$cur_item = '';
-	$state = 'PROG';
-	$prog_start = $lineno;
-      } else {
-	$cur_item .= $t;
-      }
-      $depth++;
-    } elsif ($t eq $t_close) {	# Brace or other closing delimiter
-      $depth--;
-      if ($depth < 0) {
-	$ERROR = "Unmatched close brace at line $lineno";
-	return undef;
-      } elsif ($depth == 0) {
-	push @content, [$state, $cur_item, $prog_start] if $cur_item ne '';
-	$state = 'TEXT';
-	$cur_item = '';
-      } else {
-	$cur_item .= $t;
-      }
-    } elsif (!$delim_pats && $t eq '\\\\') { # precedes \\\..\\\{ or \\\..\\\}
-      $cur_item .= '\\';
-    } elsif (!$delim_pats && $t =~ /^\\([{}])$/) { # Escaped (literal) brace?
-	$cur_item .= $1;
-    } elsif ($t eq "\n") {	# Newline
-      $lineno++;
-      $cur_item .= $t;
-    } else {			# Anything else
-      $cur_item .= $t;
-    }
-  }
-
-  if ($state eq 'PROG') {
-    $ERROR = "End of data inside program text that began at line $prog_start";
-    return undef;
-  } elsif ($state eq 'TEXT') {
-    push @content, [$state, $cur_item, $lineno] if $cur_item ne '';
-  } else {
-    die "Can't happen error #1";
-  }
-  
-  $self->{IS_COMPILED} = 1;
-  $self->{SOURCE} = \@content;
-  1;
+sub compiler {
+ my ($self, $new) = @_;
+ my $old = $self->{COMPILER};
+ $self->{COMPILER} = $new if @_ > 1;
+ return $old;
 }
 
 sub prepend_text {
@@ -193,10 +140,10 @@ sub fill_in {
   my $fi_self = shift;
   my %fi_a = @_;
 
-  unless ($fi_self->{IS_COMPILED}) {
+  unless ($fi_self->is_compiled) {
     my $delims = _param('delimiters', %fi_a);
-    my @delim_arg = (defined $delims ? ($delims) : ());
-    $fi_self->compile(@delim_arg)
+    my @delim_arg = (defined $delims ? (delimiters => $delims) : ());
+    $fi_self->compile({ @delim_arg })
       or return undef;
   }
 
