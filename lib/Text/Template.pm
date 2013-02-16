@@ -420,6 +420,12 @@ sub _install_hash {
   }
 }
 
+sub _load_class {
+  my ($class) = @_;
+  $class =~ s{::}{/}g;
+  require "$class.pm";
+}
+
 sub TTerror { $ERROR }
 
 1;

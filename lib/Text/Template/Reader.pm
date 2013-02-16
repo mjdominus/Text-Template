@@ -24,7 +24,7 @@ sub new {
       croak("Usage: new(TYPE => ..., SOURCE => ...)");
     }
 
-    _load_class($reader_class);
+    Text::Template::_load_class($reader_class);
     my $reader = $reader_class->new($args{source}) or return;
     bless { reader => $reader } => $class;
 }
@@ -35,12 +35,6 @@ sub source_is_safe { $_[0]->reader->source_is_safe }
 sub get_reader_class {
     my ($self, $source_type) = @_;
     return $reader_class{$source_type};
-}
-
-sub _load_class {
-  my ($class) = @_;
-  $class =~ s{::}{/}g;
-  require "$class.pm";
 }
 
 sub load_template_data {
