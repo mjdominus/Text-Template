@@ -12,6 +12,8 @@
 
 package Text::Template;
 use Text::Template::Reader;
+use Text::Template::Util qw(_load_text _is_clean _unconditionally_untaint
+                            _param);
 require 5.004;
 use Carp qw(croak);
 use Exporter;
@@ -25,15 +27,6 @@ my %GLOBAL_PREPEND = ('Text::Template' => '');
 
 sub Version {
   $Text::Template::VERSION;
-}
-
-sub _param {
-  my $kk;
-  my ($k, %h) = @_;
-  for $kk ($k, "\u$k", "\U$k", "-$k", "-\u$k", "-\U$k") {
-    return $h{$kk} if exists $h{$kk};
-  }
-  return;
 }
 
 sub always_prepend
@@ -310,20 +303,6 @@ sub _default_broken {
   "Program fragment delivered error ``$err''";
 }
 
-# For ancient backwards compatibility
-BEGIN { *_load_text = \&Text::Template::Reader::File::_load_text }
-
-sub _is_clean {
-  my $z;
-  eval { ($z = join('', @_)), eval '#' . substr($z,0,0); 1 }   # LOD
-}
-
-sub _unconditionally_untaint {
-  for (@_) {
-    ($_) = /(.*)/s;
-  }
-}
-
 {
   my $seqno = 0;
   sub _gensym {
@@ -365,12 +344,6 @@ sub _install_hash {
       }
     }
   }
-}
-
-sub _load_class {
-  my ($class) = @_;
-  $class =~ s{::}{/}g;
-  require "$class.pm";
 }
 
 sub TTerror { $ERROR }

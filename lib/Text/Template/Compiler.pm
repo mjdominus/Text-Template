@@ -1,8 +1,9 @@
 package Text::Template::Compiler;
+use Text::Template::Util qw(_param);
 
 sub new {
   my ($class, %args) = @_;
-  my $delim = Text::Template::_param('delimiters', %args);
+  my $delim = _param('delimiters', %args);
   my @delim =  $delim && @$delim
     ? (DELIMITERS => $delim) : ();
   bless { @delim } => $class;
@@ -19,7 +20,7 @@ sub compile {
   return undef unless $template->_acquire_data;
 
   my @tokens;
-  my $delim = Text::Template::_param('delimiters', %$args);
+  my $delim = _param('delimiters', %$args);
   my $delim_pats = $delim || $self->delimiters;
 
   my ($t_open, $t_close) = ('{', '}');

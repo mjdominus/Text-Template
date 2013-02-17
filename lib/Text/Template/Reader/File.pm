@@ -1,6 +1,7 @@
 package Text::Template::Reader::File;
 use strict;
 use Text::Template::Reader::Base;
+use Text::Template::Util qw(_load_text);
 use Try::Tiny;
 our @ISA = qw(Text::Template::Reader::Base);
 
@@ -10,16 +11,6 @@ sub load_template_data {
     try { $text = _load_text($self->source) }
     catch { $Text::Template::ERROR = $_; return };
     return $text;
-}
-
-sub _load_text {
-    my $fn = shift;
-    local *F;
-    unless (open F, $fn) {
-	die "Couldn't open file $fn: $!";
-    }
-    local $/;
-    <F>;
 }
 
 1;

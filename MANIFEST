@@ -13,6 +13,7 @@ lib/Text/Template/Reader/Base.pm
 lib/Text/Template/Reader/File.pm
 lib/Text/Template/Reader/Filehandle.pm
 lib/Text/Template/Reader/String.pm
+lib/Text/Template/Util.pm
 t/00-version.t
 t/01-basic.t
 t/02-hash.t

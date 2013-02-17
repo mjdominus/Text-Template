@@ -2,6 +2,7 @@ package Text::Template::Reader;
 use Carp;
 use strict;
 use Try::Tiny;
+use Text::Template::Util qw(_load_text _load_class);
 
 # Maps TYPE argument to the class that can read that source type
 my %reader_class = (
@@ -24,7 +25,7 @@ sub new {
       croak("Usage: new(TYPE => ..., SOURCE => ...)");
     }
 
-    Text::Template::_load_class($reader_class);
+    _load_class($reader_class);
     my $reader = $reader_class->new($args{source}) or return;
     bless { reader => $reader } => $class;
 }
