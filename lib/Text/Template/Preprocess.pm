@@ -9,7 +9,7 @@ sub fill_in {
   my (%args) = @_;
   my $pp = $args{PREPROCESSOR} || $self->{PREPROCESSOR} ;
   if ($pp) {
-    local $_ = $self->source();
+    local $_ = $self->data();
 #    print "# fill_in: before <$_>\n";
     &$pp;
 #    print "# fill_in: after <$_>\n";
