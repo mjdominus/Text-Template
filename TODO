@@ -1,0 +1,12 @@
+1. Extract template filling into separate module
+
+   * What to do about prepending?  Can we move this funcitonality into the filler,
+     without breaking backward compatibility?
+
+2. Redo test suite using Test::Routine
+
+3. More reliable cleanup of tempfiles in tests
+
+4. Make it easier to call fill_in from inside of templates.
+
+5. Alternative inside-out syntax
