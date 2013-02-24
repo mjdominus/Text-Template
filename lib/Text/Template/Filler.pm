@@ -42,7 +42,10 @@ sub fill {
     $fi_eval_package = _gensym();
     $fi_scrub_package = 1;
   } else {
-    $fi_eval_package = caller;
+    my $N = 0;
+    until ($fi_eval_package && $fi_eval_package !~ /^Text::Template/) {
+      $fi_eval_package = caller(++$N)
+    }
   }
 
   my $fi_install_package;
