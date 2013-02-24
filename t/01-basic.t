@@ -244,7 +244,7 @@ if (open (TMPL, "< $TEMPFILE")) {
 
 # (31) Test _scrubpkg for leakiness
 $Text::Template::GEN0::test = 1;
-Text::Template::_scrubpkg('Text::Template::GEN0');
+Text::Template::Util::_scrubpkg('Text::Template::GEN0');
 if ($Text::Template::GEN0::test) {
   print "not ok $n\n";
 } else {
