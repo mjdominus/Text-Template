@@ -11,6 +11,7 @@
 # Version 1.46
 
 package Text::Template;
+use Text::Template::Filler;
 use Text::Template::Reader;
 use Text::Template::Util qw(_load_text _is_clean _unconditionally_untaint
                             _param);
@@ -35,6 +36,19 @@ sub always_prepend
   my $old = $GLOBAL_PREPEND{$pack};
   $GLOBAL_PREPEND{$pack} = shift;
   $old;
+}
+
+sub prepend_text {
+  my ($self) = @_;
+  my $t = $self->{PREPEND};
+  unless (defined $t) {
+    $t = $GLOBAL_PREPEND{ref $self};
+    unless (defined $t) {
+      $t = $GLOBAL_PREPEND{'Text::Template'};
+    }
+  }
+  $self->{PREPEND} = $_[1] if $#_ >= 1;
+  return $t;
 }
 
 use Text::Template::Compiler;
@@ -87,6 +101,11 @@ sub _acquire_data {
 
 sub source {
     my ($self) = @_;
+    return $self->{SOURCE};
+}
+
+sub data {
+    my ($self) = @_;
     return $self->{DATA};
 }
 
@@ -116,143 +135,23 @@ sub compiler {
  return $old;
 }
 
-sub prepend_text {
-  my ($self) = @_;
-  my $t = $self->{PREPEND};
-  unless (defined $t) {
-    $t = $GLOBAL_PREPEND{ref $self};
-    unless (defined $t) {
-      $t = $GLOBAL_PREPEND{'Text::Template'};
-    }
-  }
-  $self->{PREPEND} = $_[1] if $#_ >= 1;
-  return $t;
+
+sub filler_factory {
+    "Text::Template::Filler";
 }
 
 sub fill_in {
-  my $fi_self = shift;
-  my %fi_a = @_;
+  my ($self, %arg) = @_;
 
-  unless ($fi_self->is_compiled) {
-    my $delims = _param('delimiters', %fi_a);
+  unless ($self->is_compiled) {
+    my $delims = _param('delimiters', %arg);
     my @delim_arg = (defined $delims ? (delimiters => $delims) : ());
-    $fi_self->compile({ @delim_arg })
+    $self->compile({ @delim_arg })
       or return undef;
   }
 
-  my $fi_varhash = _param('hash', %fi_a);
-  my $fi_package = _param('package', %fi_a) ;
-  my $fi_broken  = 
-    _param('broken', %fi_a)  || $fi_self->{BROKEN} || \&_default_broken;
-  my $fi_broken_arg = _param('broken_arg', %fi_a) || [];
-  my $fi_safe = _param('safe', %fi_a);
-  my $fi_ofh = _param('output', %fi_a);
-  my $fi_eval_package;
-  my $fi_scrub_package = 0;
-  my $fi_filename = _param('filename') || $fi_self->{FILENAME} || 'template';
-
-  my $fi_prepend = _param('prepend', %fi_a);
-  unless (defined $fi_prepend) {
-    $fi_prepend = $fi_self->prepend_text;
-  }
-
-  if (defined $fi_safe) {
-    $fi_eval_package = 'main';
-  } elsif (defined $fi_package) {
-    $fi_eval_package = $fi_package;
-  } elsif (defined $fi_varhash) {
-    $fi_eval_package = _gensym();
-    $fi_scrub_package = 1;
-  } else {
-    $fi_eval_package = caller;
-  }
-
-  my $fi_install_package;
-  if (defined $fi_varhash) {
-    if (defined $fi_package) {
-      $fi_install_package = $fi_package;
-    } elsif (defined $fi_safe) {
-      $fi_install_package = $fi_safe->root;
-    } else {
-      $fi_install_package = $fi_eval_package; # The gensymmed one
-    }
-    _install_hash($fi_varhash => $fi_install_package);
-  }
-
-  if (defined $fi_package && defined $fi_safe) {
-    no strict 'refs';
-    # Big fat magic here: Fix it so that the user-specified package
-    # is the default one available in the safe compartment.
-    *{$fi_safe->root . '::'} = \%{$fi_package . '::'};   # LOD
-  }
-
-  my $fi_r = '';
-  my $fi_item;
-  foreach $fi_item (@{$fi_self->{SOURCE}}) {
-    my ($fi_type, $fi_text, $fi_lineno) = @$fi_item;
-    if ($fi_type eq 'TEXT') {
-      $fi_self->append_text_to_output(
-        text   => $fi_text,
-        handle => $fi_ofh,
-        out    => \$fi_r,
-        type   => $fi_type,
-      );
-    } elsif ($fi_type eq 'PROG') {
-      no strict;
-      my $fi_lcomment = "#line $fi_lineno $fi_filename";
-      my $fi_progtext = 
-        "package $fi_eval_package; $fi_prepend;\n$fi_lcomment\n$fi_text;";
-      my $fi_res;
-      my $fi_eval_err = '';
-      if ($fi_safe) {
-        $fi_safe->reval(q{undef $OUT});
-	$fi_res = $fi_safe->reval($fi_progtext);
-	$fi_eval_err = $@;
-	my $OUT = $fi_safe->reval('$OUT');
-	$fi_res = $OUT if defined $OUT;
-      } else {
-	my $OUT;
-	$fi_res = eval $fi_progtext;
-	$fi_eval_err = $@;
-	$fi_res = $OUT if defined $OUT;
-      }
-
-      # If the value of the filled-in text really was undef,
-      # change it to an explicit empty string to avoid undefined
-      # value warnings later.
-      $fi_res = '' unless defined $fi_res;
-
-      if ($fi_eval_err) {
-	$fi_res = $fi_broken->(text => $fi_text,
-			       error => $fi_eval_err,
-			       lineno => $fi_lineno,
-			       arg => $fi_broken_arg,
-			       );
-	if (defined $fi_res) {
-          $fi_self->append_text_to_output(
-            text   => $fi_res,
-            handle => $fi_ofh,
-            out    => \$fi_r,
-            type   => $fi_type,
-          );
-	} else {
-	  return $fi_res;		# Undefined means abort processing
-	}
-      } else {
-        $fi_self->append_text_to_output(
-          text   => $fi_res,
-          handle => $fi_ofh,
-          out    => \$fi_r,
-          type   => $fi_type,
-        );
-      }
-    } else {
-      die "Can't happen error #2";
-    }
-  }
-
-  _scrubpkg($fi_eval_package) if $fi_scrub_package;
-  defined $fi_ofh ? 1 : $fi_r;
+  my $filler = $self->filler_factory->new(@_);
+  return $filler->fill($self);
 }
 
 sub append_text_to_output {
@@ -291,59 +190,6 @@ sub fill_in_file {
   $templ->compile or return undef;
   my $text = $templ->fill_in(@_);
   $text;
-}
-
-sub _default_broken {
-  my %a = @_;
-  my $prog_text = $a{text};
-  my $err = $a{error};
-  my $lineno = $a{lineno};
-  chomp $err;
-#  $err =~ s/\s+at .*//s;
-  "Program fragment delivered error ``$err''";
-}
-
-{
-  my $seqno = 0;
-  sub _gensym {
-    __PACKAGE__ . '::GEN' . $seqno++;
-  }
-  sub _scrubpkg {
-    my $s = shift;
-    $s =~ s/^Text::Template:://;
-    no strict 'refs';
-    my $hash = $Text::Template::{$s."::"};
-    foreach my $key (keys %$hash) {
-      undef $hash->{$key};
-    }
-  }
-}
-  
-# Given a hashful of variables (or a list of such hashes)
-# install the variables into the specified package,
-# overwriting whatever variables were there before.
-sub _install_hash {
-  my $hashlist = shift;
-  my $dest = shift;
-  if (UNIVERSAL::isa($hashlist, 'HASH')) {
-    $hashlist = [$hashlist];
-  }
-  my $hash;
-  foreach $hash (@$hashlist) {
-    my $name;
-    foreach $name (keys %$hash) {
-      my $val = $hash->{$name};
-      no strict 'refs';
-      local *SYM = *{"$ {dest}::$name"};
-      if (! defined $val) {
-	delete ${"$ {dest}::"}{$name};
-      } elsif (ref $val) {
-	*SYM = $val;
-      } else {
- 	*SYM = \$val;
-      }
-    }
-  }
 }
 
 sub TTerror { $ERROR }

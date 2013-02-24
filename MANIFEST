@@ -6,6 +6,7 @@ INSTALL
 README
 lib/Text/Template.pm
 lib/Text/Template/Compiler.pm
+lib/Text/Template/Filler.pm
 lib/Text/Template/Preprocess.pm
 lib/Text/Template/Reader.pm
 lib/Text/Template/Reader/Array.pm
